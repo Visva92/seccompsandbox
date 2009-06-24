@@ -1,0 +1,39 @@
+#summary Securely emulating clone() requires the creation of a new trusted thread and trusted process.
+
+==Steps to securely create a new thread==
+
+ * sandbox'd thread talks to trusted process and requests a new thread to be created.
+ 
+ * trusted process acquires mutex in a special memory page that is shared with all other trusted processes. It is mapped but inaccessible in the trusted and in the sandbox'd threads. This mutex stores the pid of the process.
+ 
+ * trusted process generates write protected code snippet and tells trusted thread to execute it.
+ 
+ * create temporary thread that shares address space, but does not share filehandles.
+ 
+ * trusted thread calls waitpid().
+ 
+ * temporary thread tries to exclusively open file name that was stored in write-protected snippet.
+ 
+ * if open() fails, exit.
+ 
+ * if open() succeeds, call mmap() to create shared memory in a well-known location. This location must have guard pages on both sides.
+ 
+ * then exit.
+ 
+ * trusted thread returns from waitpid() and tries to mremap() shared memory from its original fixed location. It can do this by temporarily increasing the size of the mapping.
+ 
+ * if mremap() fails, return an error to the sandbox'd thread which should retry the operation. Then fork a process that releases the mutex and exits.
+ 
+ * create one socketpair() each for both trusted thread and process.
+ 
+ * call fork() to create new trusted process.
+ 
+ * new trusted process releases mutex.
+ 
+ * trusted process waits for data on its end of the socketpair() and starts processing it.
+ 
+ * call clone() to create new trusted thread. This thread is fully privileged and shares all resources with the caller (i.e. the previous trusted thread), and by extension it shares all resources with the sandbox'd threads. It knows the address of its secure memory segment and gets this information in a CPU register.
+ 
+ * release privileges by entering seccomp mode.
+ 
+ * return to caller.
