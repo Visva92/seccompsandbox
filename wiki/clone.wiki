@@ -1,4 +1,4 @@
-#summary Securely emulating clone() requires the creation of a new trusted thread and trusted process.
+#summary Securely emulating clone() requires the creation of a new trusted thread and of a new page of memory that is securely shared with the trusted process.
 
 ==Steps to securely create a new thread==
 
