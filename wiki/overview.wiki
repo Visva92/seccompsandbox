@@ -61,7 +61,7 @@ Whenever the trusted process has inspected a complex system call and deemed it s
 
  * Any data sent or received on socketpairs() that are used for    communicating with trusted parts of the sandbox has to be    considered untrustworthy. As the sandboxed thread can    read()/write() arbitrary file handles it can easily corrupt and/or    intercept these communications.
 
- * While we do not trust file handle, we do trust shared memory. This    means, we have to be careful to never allow mmap() or munmap() to    change the mappings of our shared memory, nor must they be allowed    to change the mappings of the any code that gets executed by the    trusted thread.
+ * While we do not trust file handles, we do trust shared memory. This    means, we have to be careful to never allow mmap() or munmap() to    change the mappings of our shared memory, nor must they be allowed to change the mappings of any other code that gets executed by the    trusted thread.
 
  * The trusted thread could potentially get tricked into executing    code from the shared memory region while the trusted process is in    the middle of changing it. We have to detect this situation and    fail if it occurs. A sequence number should do the trick.
 
