@@ -26,7 +26,7 @@
 
  * call fork() to unshare the address space then exit the temporary thread.
 
- * the fork()'d process uses sendmsg() to send the file handle for the shared memory region to the trusted process. It also sends the file handle for talking to the trusted thread. To simplify the code, this should probably happen on a dedicated socketpair().
+ * the fork()'d process uses sendmsg() to send the file handle for the shared memory region to the trusted process. It also sends the file handle for talking to the trusted thread, and the new pid. The new pid is used as cookie by the trusted process to decide where to send responses, too. To simplify the code, this should probably happen on a dedicated socketpair().
 
  * the trusted process receives the file handle and maps the memory region as writable.
  
