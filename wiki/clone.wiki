@@ -14,7 +14,7 @@
  
  * nascent thread creates another temporary thread that shares address space, but does not share filehandles.
  
- * nascent thread calls waitpid(). Loops on EINTR.
+ * nascent thread calls futex to wait for temporary thread to complete.
  
  * temporary thread tries to exclusively create file for file name that it has received in the write-protected snippet.
  
@@ -30,7 +30,7 @@
 
  * the trusted process receives the file handle and maps the memory region as writable.
  
- * trusted thread returns from waitpid() and tries to mremap() shared memory from its original fixed location. It can do this by temporarily increasing the size of the mapping.
+ * nascent thread returns from futex() and tries to mremap() shared memory from its original fixed location. It can do this by temporarily increasing the size of the mapping.
  
  * if mremap() fails, return an error to the sandbox'd thread which should retry the operation.
 
