@@ -55,3 +55,37 @@ The kernel destroys `%rcx` and `%r11`.
 || `%r13` || Preserved ||
 || `%r14` || Preserved ||
 || `%r15` || Preserved ||
+
+= i386 =
+
+=== User Space ===
+
+All parameter are passed on the stack.
+
+Return value in `%eax`.
+
+Commonly reserved registers are `%ebp` for the frame pointer, and `%ebx` for position independent code.
+
+|| *Register* || *Use* ||
+|| `%eax` || Return value ||
+|| `%ebx` || Preserved, used for position independent code ||
+|| `%ecx` || Clobbered ||
+|| `%edx` || Clobbered ||
+|| `%esi` || Preserved ||
+|| `%edi` || Preserved ||
+|| `%ebp` || Preserved, frame pointer ||
+
+=== System Calls ===
+
+System call parameters are passed in `%eax`, `%ebx`, `%ecx`, `%edx`, `%esi`, `%edi`, `%ebp`. These registers are preserved across system calls.
+
+Return value in `%eax`.
+
+|| *Register* || *Use* ||
+|| `%eax` || System call number and return value ||
+|| `%ebx` || Preserved, 1st argument ||
+|| `%ecx` || Preserved, 2nd argument ||
+|| `%edx` || Preserved, 3rd argument ||
+|| `%esi` || Preserved, 4th argument ||
+|| `%edi` || Preserved, 5th argument ||
+|| `%ebp` || Preserved, 6th argument ||
