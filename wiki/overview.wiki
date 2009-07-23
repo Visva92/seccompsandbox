@@ -35,9 +35,9 @@ We could also link against a specially-built copy of glibc. While technically po
 
 Finally, at run-time we can find all places where glibc makes system calls and rewrite the code to redirect to our wrapper functions, instead.
 
-The latter is the approach that we chose. It turns out that even with a irregular assembly language like the Intel instruction set, it is possible to reliably find all call sites and to rewrite them.
+The latter is the approach that we chose. It turns out that even with an irregular assembly language like the Intel instruction set, it is possible to reliably find all call sites and to rewrite them.
 
-From a security point of view, this is acceptable as any failure to find the call sites or any failure to correctly rewrite it would result in termination of the application. This is thus not a security problem.
+From a security point of view, this is acceptable as any failure to find the call sites or any failure to correctly rewrite them would result in termination of the application. This is thus not a security problem.
 
 ===Dealing with memory access races===
 
@@ -51,18 +51,24 @@ We solve this problem by writing the trusted helper in a way that it never store
 
 In addition, for system calls that do pass critical arguments in user controlled memory, we forward the request to a trusted process (as opposed to a trusted thread). This process does not share the same address space and is thus not subject to the same race condition.
 
-Of course, by not sharing the same address space, the trusted process often cannot meaningfully execute system calls on behalf of the sandboxed thread. We address this issue by sharing a small number of memory pages between the trusted process and the trusted thread. This memory is mapped writable in the process, and readable/executable in the thread.
+Of course, by not sharing the same address space, the trusted process often cannot meaningfully execute system calls on behalf of the sandboxed thread. We address this issue by sharing a small number of memory pages between the trusted process and the trusted thread. This memory is mapped writable in the process, and read-only in the thread.
 
-Whenever the trusted process has inspected a complex system call and deemed it safe to execute, if generates assembly code in this shared memory page. The assembly code sets up CPU registers to safely call the system call that the sandboxed thread asked for. The trusted process then tells the trusted thread to execute this code. As the shared memory is not writable from within the context of the sandboxed thread, there is now no way for it to manipulate the system call prior to execution.
+Whenever the trusted process has inspected a complex system call and deemed it safe to execute, if generates a verified data block in this shared memory page. This data block includes a sequence number that gets updated on each access to the shared memory page. The trusted process then tells the trusted thread to execute a system call using the parameters in the data block. As the shared memory is not writable from within the context of the sandboxed thread, there is now no way for it to manipulate the system call prior to execution.
+
+Furthermore, a small number of system calls such as clone() and exit() have to be carefully synchronized between the trusted thread and the trusted process. We use a mutex that is located in shared memory. This memory can be accessed freely by the trusted process, but is inacessible (PROT_NONE) to the trusted thread. Whenever the trusted thread needs to operate on the mutex, it fork()s a helper process.
+
+This process does not share any address space with its parent, except for the page that has the mutex and which was mapped MAP_SHARED in the parent. This allows the helper to make the page writable and to access the mutex, without the parent ever gaining access to it.
 
 ===Other security considerations===
 
- * It is important for the trusted thread to operate entirely on CPU    registers and to not trust any memory
+ * It is important for the trusted thread to operate entirely on CPU registers and not to trust any memory that is accessible to the sandboxed untrusted code. This includes the stack. And in fact, we set the stack pointer to NULL in the trusted thread.
 
- * Any data sent or received on socketpairs() that are used for    communicating with trusted parts of the sandbox has to be    considered untrustworthy. As the sandboxed thread can    read()/write() arbitrary file handles it can easily corrupt and/or    intercept these communications.
+ * Any data sent or received on socketpairs() that are used for communicating with trusted parts of the sandbox has to be considered untrustworthy. As the sandboxed thread can read()/write() arbitrary file handles it can easily corrupt and/or intercept these communications.
 
- * While we do not trust file handles, we do trust shared memory. This    means, we have to be careful to never allow mmap() or munmap() to    change the mappings of our shared memory, nor must they be allowed to change the mappings of any other code that gets executed by the    trusted thread.
+ * Whenever we need to send or receive data that must be authenticated as originating from trusted code, we attach control messages (typically, file handles) to it. In seccomp mode the untrusted sandboxed code cannot send those message without going through the trusted code.
 
- * The trusted thread could potentially get tricked into executing    code from the shared memory region while the trusted process is in    the middle of changing it. We have to detect this situation and    fail if it occurs. A sequence number should do the trick.
+ * While we do not trust file handles, we do trust shared memory. This means, we have to be careful to never allow mmap(), munmap() or mprotect() to change the mappings of our shared memory, nor must they be allowed to change the mappings of any other code that gets executed by the trusted thread.
 
- * Any time a new thread gets created with clone(), we have to set up    a new shared memory region, and create a new trusted thread. This    is difficult as we have to make sure that at no time must any    untrusted code be allowed to manipulate the content of the shared    memory region. There is a separate document that discusses these    details.
+ * The trusted thread could potentially get tricked into reading data from the shared memory region while the trusted process is in the middle of changing it. In the cases where the trusted thread reads all of the data into its CPU registers prior to make a system call, this situation can be handled by a sequence number that gets updated each time the shared memory region is changed. In cases where a pointer to data in the shared memory region needs to be passed to the kernel, we acquire the secure mutex and only release it after the system call has completed.
+
+ * Any time a new thread gets created with clone(), we have to set up a new shared memory region, and create a new trusted thread. This is difficult as we have to make sure that at no time must any untrusted code be allowed to manipulate the content of the shared memory region. There is a separate document that discusses these details.
