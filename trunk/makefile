@@ -21,7 +21,7 @@ include $(DEP_FILES)
 
 .SUFFIXES: .o64 .o32
 
-all: testbin timestats demo
+all: testbin timestats demo elf_loader_32 elf_loader_64
 
 clean:
 	-rm -f playground playground.o
@@ -51,6 +51,13 @@ run_tests_64: $(OBJS64) tests/test_syscalls.o64 tests/clone_test_helper.o64
 	g++ -m64 $^ -lpthread -lutil -o $@
 run_tests_32: $(OBJS32) tests/test_syscalls.o32 tests/clone_test_helper.o32
 	g++ -m32 $^ -lpthread -lutil -o $@
+
+# Link these as PIEs so that they stay out of the way of any
+# fixed-position executable that gets loaded later.
+elf_loader_64: elf_loader.o64 $(OBJS64)
+	g++ -pie -m64 $^ -o $@
+elf_loader_32: elf_loader.o32 $(OBJS32)
+	g++ -pie -m32 $^ -o $@
 
 demo: playground preload32.so preload64.so
 	./playground /bin/ls $(HOME)
