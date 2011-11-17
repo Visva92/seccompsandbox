@@ -117,7 +117,6 @@ class Library {
   bool parseElf();
   const Elf_Ehdr* getEhdr();
   const Elf_Shdr* getSection(const string& section);
-  int  getSectionIndex(const string& section);
   void makeWritable(bool state) const;
   void patchSystemCalls();
   bool isVDSO() const { return isVDSO_; }
@@ -154,13 +153,9 @@ class Library {
   typedef std::map<string, Elf_Sym, std::less<string>,
                    SystemAllocator<std::pair<const string,
                                              Elf_Sym> > > SymbolTable;
-  typedef std::map<string, Elf_Addr, std::less<string>,
-                   SystemAllocator<std::pair<const string,
-                                             Elf_Addr> > > PltTable;
 
   char* getBytes(char* dst, const char* src, ssize_t len);
   static bool isSafeInsn(unsigned short insn);
-  static int isSimpleSystemCall(char *start, char *end);
   static char* getScratchSpace(const Maps* maps, char* near, int needed,
                                char** extraSpace, int* extraLength);
   static void patchSystemCallsInFunction(const Maps* maps, int vsys_offset,
@@ -177,7 +172,6 @@ class Library {
   Elf_Ehdr        ehdr_;
   SectionTable    section_table_;
   SymbolTable     symbols_;
-  PltTable        plt_entries_;
   char*           image_;
   size_t          image_size_;
   static Maps*    maps_;

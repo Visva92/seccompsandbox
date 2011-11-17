@@ -41,16 +41,6 @@ typedef Elf64_Sxword  Elf_Sxword;
 typedef Elf64_Off     Elf_Off;
 typedef Elf64_Section Elf_Section;
 typedef Elf64_Versym  Elf_Versym;
-
-#define ELF_ST_BIND   ELF64_ST_BIND
-#define ELF_ST_TYPE   ELF64_ST_TYPE
-#define ELF_ST_INFO   ELF64_ST_INFO
-#define ELF_R_SYM     ELF64_R_SYM
-#define ELF_R_TYPE    ELF64_R_TYPE
-#define ELF_R_INFO    ELF64_R_INFO
-
-#define ELF_REL_PLT   ".rela.plt"
-#define ELF_JUMP_SLOT R_X86_64_JUMP_SLOT
 #elif defined(__i386__)
 typedef Elf32_Phdr    Elf_Phdr;
 typedef Elf32_Rel     Elf_Rel;
@@ -63,16 +53,6 @@ typedef Elf32_Sxword  Elf_Sxword;
 typedef Elf32_Off     Elf_Off;
 typedef Elf32_Section Elf_Section;
 typedef Elf32_Versym  Elf_Versym;
-
-#define ELF_ST_BIND   ELF32_ST_BIND
-#define ELF_ST_TYPE   ELF32_ST_TYPE
-#define ELF_ST_INFO   ELF32_ST_INFO
-#define ELF_R_SYM     ELF32_R_SYM
-#define ELF_R_TYPE    ELF32_R_TYPE
-#define ELF_R_INFO    ELF32_R_INFO
-
-#define ELF_REL_PLT   ".rel.plt"
-#define ELF_JUMP_SLOT R_386_JMP_SLOT
 #else
 #error Unsupported target platform
 #endif
@@ -327,17 +307,6 @@ const Elf_Shdr* Library::getSection(const string& section) {
     return NULL;
   }
   return &iter->second.second;
-}
-
-int Library::getSectionIndex(const string& section) {
-  if (!valid_) {
-    return -1;
-  }
-  SectionTable::const_iterator iter = section_table_.find(section);
-  if (iter == section_table_.end()) {
-    return -1;
-  }
-  return iter->second.first;
 }
 
 void Library::makeWritable(bool state) const {
@@ -1173,8 +1142,7 @@ bool Library::parseSymbols() {
   Elf_Shdr str_shdr;
   getOriginal(ehdr_.e_shoff + ehdr_.e_shstrndx * ehdr_.e_shentsize, &str_shdr);
 
-  // Find PLT and symbol tables
-  const Elf_Shdr* plt = getSection(ELF_REL_PLT);
+  // Find symbol table
   const Elf_Shdr* symtab = getSection(".dynsym");
   Elf_Shdr strtab = { 0 };
   if (symtab) {
@@ -1185,39 +1153,7 @@ bool Library::parseSymbols() {
       valid_ = false;
       return false;
     }
-  }
 
-  if (plt && symtab) {
-    // Parse PLT table and add its entries
-    for (int i = plt->sh_size/sizeof(Elf_Rel); --i >= 0; ) {
-      Elf_Rel rel;
-      if (!getOriginal(plt->sh_offset + i * sizeof(Elf_Rel), &rel) ||
-          ELF_R_SYM(rel.r_info)*sizeof(Elf_Sym) >= symtab->sh_size) {
-        Debug::message("Encountered invalid plt entry\n");
-        valid_ = false;
-        return false;
-      }
-
-      if (ELF_R_TYPE(rel.r_info) != ELF_JUMP_SLOT) {
-        continue;
-      }
-      Elf_Sym sym;
-      if (!getOriginal(symtab->sh_offset +
-                       ELF_R_SYM(rel.r_info)*sizeof(Elf_Sym), &sym) ||
-          sym.st_shndx >= ehdr_.e_shnum) {
-        Debug::message("Encountered invalid symbol for plt entry\n");
-        valid_ = false;
-        return false;
-      }
-      string name = getOriginal(strtab.sh_offset + sym.st_name);
-      if (name.empty()) {
-        continue;
-      }
-      plt_entries_.insert(std::make_pair(name, rel.r_offset));
-    }
-  }
-
-  if (symtab) {
     // Parse symbol table and add its entries
     for (Elf_Addr addr = 0; addr < symtab->sh_size; addr += sizeof(Elf_Sym)) {
       Elf_Sym sym;
