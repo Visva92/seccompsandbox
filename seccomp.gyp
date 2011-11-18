@@ -77,17 +77,6 @@
         '-lpthread',
         '-lutil', # For openpty()
       ],
-      'actions': [
-        {
-          'action_name': 'make_test_list',
-          'inputs': [
-            'tests/list_tests.py',
-            'tests/test_syscalls.cc',
-          ],
-          'outputs': ['<(seccomp_intermediate_dir)/test-list.h'],
-          'action': ['sh', '-c', 'python <(_inputs) > <(_outputs)'],
-        },
-      ],
     },
     {
       'target_name': 'timestats',

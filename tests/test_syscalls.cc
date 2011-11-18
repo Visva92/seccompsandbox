@@ -116,8 +116,44 @@ void intend_exit_status(int val, bool is_signal) {
 }
 
 
-// This is basically a marker to grep for.
-#define TEST(name) void name()
+struct testcase {
+  const char *test_name;
+  void (*test_func)();
+};
+
+static const int kMaxTests = 1000;
+static struct testcase g_tests[kMaxTests];
+static int g_tests_count = 0;
+
+void add_test_case(const char *test_name, void (*test_func)()) {
+  CHECK(g_tests_count < kMaxTests - 1);
+  g_tests[g_tests_count].test_name = test_name;
+  g_tests[g_tests_count].test_func = test_func;
+  g_tests_count++;
+}
+
+// Reverse the test list so that tests are run in the order in which
+// they appear in the source.  We do this because the constructor
+// functions that we use to add the tests get run in reverse order.
+void reverse_tests() {
+  int i = 0;
+  int j = g_tests_count - 1;
+  while (i < j) {
+    struct testcase temp = g_tests[i];
+    g_tests[i] = g_tests[j];
+    g_tests[j] = temp;
+    i++;
+    j--;
+  }
+}
+
+#define TEST(name) \
+  void name(); \
+  static void __attribute__((constructor)) add_##name() { \
+    add_test_case(#name, name); \
+  } \
+  void name()
+
 
 TEST(test_dup) {
   StartSeccompSandbox();
@@ -1432,16 +1468,6 @@ TEST(test_stack_alignment) {
   CHECK(status != 0);  // stack was unaligned
 }
 
-struct testcase {
-  const char *test_name;
-  void (*test_func)();
-};
-
-struct testcase all_tests[] = {
-#include "test-list.h"
-  { NULL, NULL },
-};
-
 static int run_test_forked(struct testcase *test) {
   printf("** %s\n", test->test_name);
   int pipe_fds[2];
@@ -1483,7 +1509,7 @@ static int run_test_forked(struct testcase *test) {
 
 static int run_test_by_name(const char *name) {
   struct testcase *test;
-  for (test = all_tests; test->test_name != NULL; test++) {
+  for (test = g_tests; test->test_name != NULL; test++) {
     if (strcmp(name, test->test_name) == 0) {
       printf("Running test %s...\n", name);
       test->test_func();
@@ -1513,6 +1539,8 @@ int main(int argc, char **argv) {
       playground::CreateReferenceTrustedThread;
   }
 
+  reverse_tests();
+
   if (argc == 2) {
     // Run one test without forking, to aid debugging.
     return run_test_by_name(argv[1]);
@@ -1526,7 +1554,7 @@ int main(int argc, char **argv) {
     // Run all tests.
     struct testcase *test;
     int failures = 0;
-    for (test = all_tests; test->test_name != NULL; test++) {
+    for (test = g_tests; test->test_name != NULL; test++) {
       failures += run_test_forked(test);
     }
     if (failures == 0) {

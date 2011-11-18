@@ -35,7 +35,6 @@ clean:
 	-rm -f run_tests_32 run_tests_64
 	-rm -f elf_loader_32 elf_loader_64
 	-rm -f patch_offline
-	-rm -f tests/test-list.h
 	-rm -f core core.* vgcore vgcore.* strace.log*
 
 test: run_tests_64 run_tests_32
@@ -43,11 +42,6 @@ test: run_tests_64 run_tests_32
 	./run_tests_32
 	env SECCOMP_SANDBOX_REFERENCE_IMPL=1 ./run_tests_64
 	env SECCOMP_SANDBOX_REFERENCE_IMPL=1 ./run_tests_32
-
-tests/test_syscalls.o64 tests/test_syscalls.o32: tests/test-list.h
-
-tests/test-list.h: tests/list_tests.py tests/test_syscalls.cc
-	python tests/list_tests.py tests/test_syscalls.cc > $@
 
 run_tests_64: $(OBJS64) tests/test_syscalls.o64 tests/clone_test_helper.o64
 	g++ -m64 $^ -lpthread -lutil -o $@
