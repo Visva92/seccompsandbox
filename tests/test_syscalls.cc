@@ -380,6 +380,49 @@ TEST(test_gettid) {
   CHECK_SUCCEEDS(tid == syscall(__NR_gettid));
 }
 
+// The timer tests below could fail on a heavily loaded machine, but
+// we make a generous allowance for this.  They could also fail if the
+// clock is changed while the test is running.
+const int kMaxTime = 30; // Time in seconds
+
+// Check gettimeofday() because:
+//  * it uses the x86-64 vsyscall page in some versions of glibc;
+//  * the vdso version sometimes uses a system call instruction, which
+//    can cause re-entrancy in Debug::syscall().
+TEST(test_gettimeofday) {
+  struct timeval time1;
+  struct timeval time2;
+  CHECK_SUCCEEDS(gettimeofday(&time1, NULL) == 0);
+  StartSeccompSandbox();
+  CHECK_SUCCEEDS(gettimeofday(&time2, NULL) == 0);
+  CHECK(time1.tv_sec <= time2.tv_sec && time2.tv_sec < time1.tv_sec + kMaxTime);
+}
+
+// Check time() because it uses the x86-64 vsyscall page in many
+// versions of glibc.
+TEST(test_time) {
+  time_t time1;
+  time_t time2;
+  CHECK_SUCCEEDS((time1 = time(NULL)) != -1);
+  StartSeccompSandbox();
+  CHECK_SUCCEEDS((time2 = time(NULL)) != -1);
+  CHECK(time1 <= time2 && time2 < time1 + kMaxTime);
+}
+
+// Check sched_getcpu() because it uses the x86-64 vsyscall page in
+// many versions of glibc.
+TEST(test_sched_getcpu) {
+  CHECK_SUCCEEDS(sched_getcpu() >= 0);
+  StartSeccompSandbox();
+  // We don't know if this will succeed or not.  It might perform a
+  // real system call to the kernel, or it might just read memory.  If
+  // it does fail, though, it should fail with ENOSYS.
+  int cpu = sched_getcpu();
+  if (cpu < 0) {
+    CHECK_ERRNO(cpu, ENOSYS);
+  }
+}
+
 static void *map_something() {
   void *addr;
   CHECK_SUCCEEDS((addr = mmap(NULL, 0x1000, PROT_READ,
