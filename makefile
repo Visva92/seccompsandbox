@@ -21,7 +21,7 @@ include $(DEP_FILES)
 
 .SUFFIXES: .o64 .o32
 
-all: testbin timestats demo elf_loader_32 elf_loader_64
+all: testbin timestats demo elf_loader_32 elf_loader_64 patch_offline
 
 clean:
 	-rm -f playground playground.o
@@ -33,6 +33,8 @@ clean:
 	-rm -f testbin32 testbin.o32
 	-rm -f timestats timestats.o
 	-rm -f run_tests_32 run_tests_64
+	-rm -f elf_loader_32 elf_loader_64
+	-rm -f patch_offline
 	-rm -f tests/test-list.h
 	-rm -f core core.* vgcore vgcore.* strace.log*
 
@@ -58,6 +60,9 @@ elf_loader_64: elf_loader.o64 $(OBJS64)
 	g++ -pie -m64 $^ -o $@
 elf_loader_32: elf_loader.o32 $(OBJS32)
 	g++ -pie -m32 $^ -o $@
+
+patch_offline: patch_offline.o x86_decode.o
+	g++ $^ -o $@
 
 demo: playground preload32.so preload64.so
 	./playground /bin/ls $(HOME)
