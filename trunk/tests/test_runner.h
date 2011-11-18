@@ -5,6 +5,9 @@
 #ifndef TEST_RUNNER_H__
 #define TEST_RUNNER_H__
 
+#include <errno.h>
+#include <stdio.h>
+
 
 void intend_exit_status(int val, bool is_signal);
 void add_test_case(const char *test_name, void (*test_func)());

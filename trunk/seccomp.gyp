@@ -65,6 +65,8 @@
         'reference_trusted_thread.cc',
         'tests/clone_test_helper.S',
         'tests/test_runner.cc',
+        'tests/test_patching.cc',
+        'tests/test_patching_input.S',
         'tests/test_syscalls.cc',
       ],
       'include_dirs': [
