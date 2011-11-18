@@ -10,10 +10,16 @@ MODS := allocator preload library debug maps x86_decode securemem sandbox     \
         getpid gettid ioctl ipc madvise mmap mprotect                         \
         munmap open prctl reference_trusted_thread sigaction sigprocmask      \
         socketcall stat tls_setup tls_setup_helper
+TEST_MODS := \
+        tests/clone_test_helper \
+        tests/test_runner \
+        tests/test_syscalls
 OBJS64 := $(shell echo ${MODS} | xargs -n 1 | sed -e 's/$$/.o64/')
 OBJS32 := $(shell echo ${MODS} | xargs -n 1 | sed -e 's/$$/.o32/')
-ALL_OBJS = $(OBJS32) $(OBJS64) tests/test_syscalls.o64 tests/test_syscalls.o32 \
-           tests/clone_test_helper.o64 tests/clone_test_helper.o32 \
+TEST_OBJS64 := $(shell echo ${TEST_MODS} | xargs -n 1 | sed -e 's/$$/.o64/')
+TEST_OBJS32 := $(shell echo ${TEST_MODS} | xargs -n 1 | sed -e 's/$$/.o32/')
+ALL_OBJS = $(OBJS32) $(OBJS64) \
+           $(TEST_OBJS32) $(TEST_OBJS64) \
            timestats.o playground.o
 DEP_FILES = $(wildcard $(foreach f,$(ALL_OBJS),$(f).d))
 
@@ -43,9 +49,9 @@ test: run_tests_64 run_tests_32
 	env SECCOMP_SANDBOX_REFERENCE_IMPL=1 ./run_tests_64
 	env SECCOMP_SANDBOX_REFERENCE_IMPL=1 ./run_tests_32
 
-run_tests_64: $(OBJS64) tests/test_syscalls.o64 tests/clone_test_helper.o64
+run_tests_64: $(OBJS64) $(TEST_OBJS64)
 	g++ -m64 $^ -lpthread -lutil -o $@
-run_tests_32: $(OBJS32) tests/test_syscalls.o32 tests/clone_test_helper.o32
+run_tests_32: $(OBJS32) $(TEST_OBJS32)
 	g++ -m32 $^ -lpthread -lutil -o $@
 
 # Link these as PIEs so that they stay out of the way of any
