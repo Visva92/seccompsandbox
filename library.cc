@@ -59,7 +59,6 @@ typedef Elf32_Versym  Elf_Versym;
 
 namespace playground {
 
-Maps* Library::maps_;
 char* Library::__kernel_vsyscall;
 char* Library::__kernel_sigreturn;
 char* Library::__kernel_rt_sigreturn;
@@ -70,7 +69,8 @@ Library::Library() :
       asr_offset_(0),
       vsys_offset_(0),
       image_(0),
-      image_size_(0) {
+      image_size_(0),
+      maps_(NULL) {
 }
 
 Library::~Library() {
@@ -1014,6 +1014,17 @@ void Library::patchSystemCalls() {
   const Elf_Shdr& shdr = iter->second.second;
   char* start = reinterpret_cast<char *>(shdr.sh_addr + asr_offset_);
   char* stop = start + shdr.sh_size;
+  patchSystemCallsInRange(start, stop, &extraSpace, &extraLength);
+
+  // Mark our scratch space as write-protected and executable.
+  if (extraSpace) {
+    Sandbox::SysCalls sys;
+    sys.mprotect(extraSpace, 4096, PROT_READ|PROT_EXEC);
+  }
+}
+
+void Library::patchSystemCallsInRange(char* start, char* stop,
+                                      char** extraSpace, int* extraLength) {
   char* func = start;
   int nopcount = 0;
   bool has_syscall = false;
@@ -1047,7 +1058,7 @@ void Library::patchSystemCalls() {
           // Our quick scan of the function found a potential system call.
           // Do a more thorough scan, now.
           patchSystemCallsInFunction(maps_, isVDSO_ ? vsys_offset_ : 0, func,
-                                     ptr, &extraSpace, &extraLength);
+                                     ptr, extraSpace, extraLength);
         }
         func = ptr;
       }
@@ -1060,13 +1071,7 @@ void Library::patchSystemCalls() {
     // Patch any remaining system calls that were in the last function before
     // the loop terminated.
     patchSystemCallsInFunction(maps_, isVDSO_ ? vsys_offset_ : 0, func, stop,
-                               &extraSpace, &extraLength);
-  }
-
-  // Mark our scratch space as write-protected and executable.
-  if (extraSpace) {
-    Sandbox::SysCalls sys;
-    sys.mprotect(extraSpace, 4096, PROT_READ|PROT_EXEC);
+                               extraSpace, extraLength);
   }
 }
 

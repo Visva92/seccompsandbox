@@ -119,6 +119,8 @@ class Library {
   const Elf_Shdr* getSection(const string& section);
   void makeWritable(bool state) const;
   void patchSystemCalls();
+  void patchSystemCallsInRange(char* start, char* stop,
+                               char** extraSpace, int* extraLength);
   bool isVDSO() const { return isVDSO_; }
 
  protected:
@@ -174,7 +176,7 @@ class Library {
   SymbolTable     symbols_;
   char*           image_;
   size_t          image_size_;
-  static Maps*    maps_;
+  Maps*           maps_;
   static char*    __kernel_vsyscall;
   static char*    __kernel_sigreturn;
   static char*    __kernel_rt_sigreturn;

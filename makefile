@@ -13,6 +13,8 @@ MODS := allocator preload library debug maps x86_decode securemem sandbox     \
 TEST_MODS := \
         tests/clone_test_helper \
         tests/test_runner \
+        tests/test_patching \
+        tests/test_patching_input \
         tests/test_syscalls
 OBJS64 := $(shell echo ${MODS} | xargs -n 1 | sed -e 's/$$/.o64/')
 OBJS32 := $(shell echo ${MODS} | xargs -n 1 | sed -e 's/$$/.o32/')
