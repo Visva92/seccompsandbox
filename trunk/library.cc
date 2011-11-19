@@ -364,6 +364,54 @@ char* Library::getScratchSpace(const Maps* maps, char* near, int needed,
   Sandbox::die("Insufficient space to intercept system call");
 }
 
+#if defined(__x86_64__)
+static bool isCallToVsyscallPage(char* code) {
+  // Look for these instructions, which are a call to the x86-64
+  // vsyscall page, which the kernel puts at a fixed address:
+  //
+  //   48 c7 c0 00 XX 60 ff    mov    $0xffffffffff60XX00,%rax
+  //   ff d0                   callq  *%rax
+  //
+  // This will not catch all calls to the vsyscall page, but it
+  // handles the important cases that glibc contains.  The vsyscall
+  // page is deprecated, so it is unlikely that new instruction
+  // sequences for calling it will be introduced.
+  return (code[0] == '\x48' &&
+          code[1] == '\xc7' &&
+          code[2] == '\xc0' &&
+          code[3] == '\x00' &&
+          (code[4] == '\x00' || code[4] == '\x04' || code[4] == '\x08') &&
+          code[5] == '\x60' &&
+          code[6] == '\xff' &&
+          code[7] == '\xff' &&
+          code[8] == '\xd0');
+}
+
+static void patchCallToVsyscallPage(char* code) {
+  // We replace the mov+callq with these instructions:
+  //
+  //   b8 XX XX XX XX   mov $X, %eax  // where X is the syscall number
+  //   0f 05            syscall 
+  //   90               nop
+  //   90               nop
+  //
+  // The syscall instruction will later be patched by the general case.
+  if (code[4] == '\x00') {
+    // Use __NR_gettimeofday == 96 == 0x60.
+    const char replacement[] = "\xb8\x60\x00\x00\x00\x0f\x05\x90\x90";
+    memcpy(code, replacement, sizeof(replacement) - 1);
+  } else if (code[4] == '\x04') {
+    // Use __NR_time == 201 == 0xc9.
+    const char replacement[] = "\xb8\xc9\x00\x00\x00\x0f\x05\x90\x90";
+    memcpy(code, replacement, sizeof(replacement) - 1);
+  } else if (code[4] == '\x08') {
+    // Use __NR_getcpu == 309 == 0x135.
+    const char replacement[] = "\xb8\x35\x01\x00\x00\x0f\x05\x90\x90";
+    memcpy(code, replacement, sizeof(replacement) - 1);
+  }
+}
+#endif
+
 void Library::patchSystemCallsInFunction(const Maps* maps, int vsys_offset,
                                          char* start, char* end,
                                          char** extraSpace, int* extraLength) {
@@ -392,6 +440,11 @@ void Library::patchSystemCallsInFunction(const Maps* maps, int vsys_offset,
   int codeIdx = 0;
   char* ptr = start;
   while (ptr < end) {
+    #if defined(__x86_64__)
+    if (isCallToVsyscallPage(ptr)) {
+      patchCallToVsyscallPage(ptr);
+    }
+    #endif
     // Keep a ring-buffer of the last few instruction in order to find the
     // correct place to patch the code.
     char *mod_rm;
@@ -1031,7 +1084,8 @@ void Library::patchSystemCallsInRange(char* start, char* stop,
   for (char *ptr = start; ptr < stop; ptr++) {
     #if defined(__x86_64__)
     if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) ||
-        (isVDSO_ && *ptr == '\xFF')) {
+        (isVDSO_ && *ptr == '\xFF') ||
+        isCallToVsyscallPage(ptr)) {
     #elif defined(__i386__)
     if ((*ptr   == '\xCD' && ptr[1] == '\x80' /* INT $0x80 */) ||
         (*ptr   == '\x65' && ptr[1] == '\xFF' &&
