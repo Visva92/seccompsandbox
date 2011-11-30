@@ -25,6 +25,7 @@
 
 #include "debug.h"
 #include "sandbox_impl.h"
+#include "system_call_table.h"
 #include "test_runner.h"
 #include "tls_setup.h"
 
@@ -983,6 +984,65 @@ TEST(test_prctl) {
   CHECK_SUCCEEDS(waitpid(pid, &status, 0) == pid);
   CHECK(WIFSIGNALED(status));
   CHECK(WTERMSIG(status) == SIGKILL);
+}
+
+static const long test_arg_values[] = {
+#if defined(__x86_64__)
+  0x1234567800000011,
+  0x2345678900000022,
+  0x3456789000000033,
+  0x4567890100000044,
+  0x5678901200000055,
+  0x6789012300000066,
+#elif defined(__i386__)
+  0x12340011,
+  0x23450022,
+  0x34560033,
+  0x45670044,
+  0x56780055,
+  0x67890066,
+#else
+#error Unsupported target platform
+#endif
+};
+
+static int dummy_syscall_calls = 0;
+
+static long dummy_syscall(long arg1, long arg2, long arg3,
+                          long arg4, long arg5, long arg6) {
+  long args[] = { arg1, arg2, arg3, arg4, arg5, arg6 };
+  bool success = true;
+  for (int i = 0; i < 6; i++) {
+    if (args[i] != test_arg_values[i]) {
+      printf("mismatch in arg %i\n", i);
+      success = false;
+    }
+  }
+  CHECK(success);
+  dummy_syscall_calls++;
+  return TEST_VALUE;
+}
+
+// Performs a syscall given an array of syscall arguments.
+extern "C" long syscall_via_int0(unsigned long regs[7]);
+
+TEST(test_syscall_via_int0) {
+  // This syscall is not normally usable by non-root users, so we can
+  // safely reuse the number during this test.
+  int dummy_sysnum = __NR_mount;
+  playground::SyscallTable::initializeSyscallTable();
+  playground::SyscallTable::unprotectSyscallTable();
+  playground::SyscallTable::syscallTable[dummy_sysnum].handler =
+      reinterpret_cast<void (*)()>(dummy_syscall);
+  playground::SyscallTable::protectSyscallTable();
+  StartSeccompSandbox();
+  unsigned long args[7];
+  args[0] = dummy_sysnum;
+  for (int i = 0; i < 6; i++) {
+    args[i + 1] = test_arg_values[i];
+  }
+  CHECK(syscall_via_int0(args) == TEST_VALUE);
+  CHECK(dummy_syscall_calls == 1);
 }
 
 TEST(test_syscall_entrypoint_var) {
