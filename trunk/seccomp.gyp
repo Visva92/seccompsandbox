@@ -64,6 +64,7 @@
       'sources': [
         'reference_trusted_thread.cc',
         'tests/clone_test_helper.S',
+        'tests/syscall_via_int0.S',
         'tests/test_runner.cc',
         'tests/test_patching.cc',
         'tests/test_patching_input.S',

@@ -12,6 +12,7 @@ MODS := allocator preload library debug maps x86_decode securemem sandbox     \
         socketcall stat tls_setup tls_setup_helper
 TEST_MODS := \
         tests/clone_test_helper \
+        tests/syscall_via_int0 \
         tests/test_runner \
         tests/test_patching \
         tests/test_patching_input \
