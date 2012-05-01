@@ -11,6 +11,7 @@
 namespace playground {
 
 // Global variables
+int                                 Sandbox::proc_self_ = -1;
 int                                 Sandbox::proc_self_maps_ = -1;
 enum Sandbox::SandboxStatus         Sandbox::status_ = STATUS_UNKNOWN;
 int                                 Sandbox::pid_;
@@ -193,7 +194,7 @@ void Sandbox::snapshotMemoryMappings(int processFd, int proc_self_maps) {
   }
 }
 
-int Sandbox::supportsSeccompSandbox(int proc_fd) {
+int Sandbox::supportsSeccompSandbox(int proc_self) {
   if (status_ != STATUS_UNKNOWN) {
     return status_ != STATUS_UNSUPPORTED;
   }
@@ -216,8 +217,8 @@ int Sandbox::supportsSeccompSandbox(int proc_fd) {
         sys.dup2(devnull, 2);
         sys.close(devnull);
       }
-      if (proc_fd >= 0) {
-        setProcSelfMaps(sys.openat(proc_fd, "self/maps", O_RDONLY, 0));
+      if (proc_self >= 0) {
+        setProcSelf(sys.dup(proc_self));
       }
       startSandbox();
       write(sys, fds[1], "", 1);
@@ -250,8 +251,8 @@ int Sandbox::supportsSeccompSandbox(int proc_fd) {
   }
 }
 
-void Sandbox::setProcSelfMaps(int proc_self_maps) {
-  proc_self_maps_ = proc_self_maps;
+void Sandbox::setProcSelf(int proc_self) {
+  proc_self_ = proc_self;
 }
 
 void Sandbox::startSandbox() {
@@ -262,6 +263,13 @@ void Sandbox::startSandbox() {
   }
 
   SysCalls sys;
+  if (proc_self_ >= 0) {
+    proc_self_maps_ = sys.openat(proc_self_, "maps", O_RDONLY, 0);
+    if (NOINTR_SYS(sys.close(proc_self_))) {
+      die("Failed to close proc_self_");
+    }
+    proc_self_ = -1;
+  }
   if (proc_self_maps_ < 0) {
     proc_self_maps_        = sys.open("/proc/self/maps", O_RDONLY, 0);
     if (proc_self_maps_ < 0) {
