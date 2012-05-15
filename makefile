@@ -54,8 +54,10 @@ test: run_tests_64 run_tests_32
 
 run_tests_64: $(OBJS64) $(TEST_OBJS64)
 	g++ -m64 $^ -lpthread -lutil -o $@
+	@paxctl -cPSmXER "$@" 2>/dev/null || :
 run_tests_32: $(OBJS32) $(TEST_OBJS32)
 	g++ -m32 $^ -lpthread -lutil -o $@
+	@paxctl -cPSmXER "$@" 2>/dev/null || :
 
 # Link these as PIEs so that they stay out of the way of any
 # fixed-position executable that gets loaded later.
@@ -90,10 +92,12 @@ timestats: timestats.o
 testbin64: test.cc ${OBJS64}
 	${CXX} ${CFLAGS} ${CPPFLAGS} -m64 -c -o testbin.o64 $<
 	${CXX} ${LDFLAGS} -m64 -o testbin64 testbin.o64 ${OBJS64} -lpthread -ldl
+	@paxctl -cPSmXER "$@" 2>/dev/null || :
 
 testbin32: test.cc ${OBJS32}
 	${CXX} ${CFLAGS} ${CPPFLAGS} -m32 -c -o testbin.o32 $<
 	${CXX} ${LDFLAGS} -m32 -o testbin32 testbin.o32 ${OBJS32} -lpthread -ldl
+	@paxctl -cPSmXER "$@" 2>/dev/null || :
 
 playground: playground.o
 	${CXX} ${LDFLAGS} -o $@ $<
