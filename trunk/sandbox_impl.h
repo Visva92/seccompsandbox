@@ -72,9 +72,9 @@ class Sandbox {
   // This could be because the kernel does not support Seccomp mode, or it
   // could be because we fail to successfully rewrite all system call entry
   // points.
-  // "proc_self" should be a file descriptor for "/proc/self", or -1 if not
-  // provided by the caller.
-  static int supportsSeccompSandbox(int proc_self)
+  // "proc" should be a file descriptor for "/proc", or -1 if not provided by
+  // the caller.
+  static int supportsSeccompSandbox(int proc)
                                          asm("SupportsSeccompSandbox");
 
   // The sandbox needs to be able to access "/proc/self/maps". If this file
@@ -84,7 +84,7 @@ class Sandbox {
   // eventually close it when "startSandbox()" executes. But if the caller
   // never ends up calling startSandbox(), then the caller must close the
   // file descriptor.
-  static void setProcSelf(int proc_self) asm("SeccompSandboxSetProcSelf");
+  static void setProcFd(int proc)        asm("SeccompSandboxSetProcFd");
 
   // This is the main public entry point. It finds all system calls that
   // need rewriting, sets up the resources needed by the sandbox, and
@@ -643,7 +643,7 @@ class Sandbox {
   // Seccomp mode.
   static void  createTrustedThread(SecureMem::Args* secureMem);
 
-  static int   proc_self_;
+  static int   proc_;
   static int   proc_self_maps_;
   static enum SandboxStatus {
     STATUS_UNKNOWN, STATUS_UNSUPPORTED, STATUS_AVAILABLE, STATUS_ENABLED
