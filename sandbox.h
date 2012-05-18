@@ -6,8 +6,8 @@
 #define SANDBOX_H__
 
 // See sandbox_impl.h for detailed comments on this API
-extern "C" int  SupportsSeccompSandbox(int proc_self);
-extern "C" void SeccompSandboxSetProcSelf(int proc_self);
+extern "C" int  SupportsSeccompSandbox(int proc);
+extern "C" void SeccompSandboxSetProcFd(int proc);
 extern "C" void StartSeccompSandbox();
 
 #endif // SANDBOX_H__
