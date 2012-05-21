@@ -218,7 +218,7 @@ int Sandbox::supportsSeccompSandbox(int proc) {
         sys.close(devnull);
       }
       if (proc >= 0) {
-        setProcFd(sys.dup(proc));
+        setProcFd(proc);
       }
       startSandbox();
       write(sys, fds[1], "", 1);
