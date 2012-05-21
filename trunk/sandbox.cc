@@ -11,7 +11,6 @@
 namespace playground {
 
 // Global variables
-int                                 Sandbox::proc_ = -1;
 int                                 Sandbox::proc_self_maps_ = -1;
 enum Sandbox::SandboxStatus         Sandbox::status_ = STATUS_UNKNOWN;
 int                                 Sandbox::pid_;
@@ -252,7 +251,13 @@ int Sandbox::supportsSeccompSandbox(int proc) {
 }
 
 void Sandbox::setProcFd(int proc) {
-  proc_ = proc;
+  if (proc >= 0) {
+    SysCalls sys;
+    proc_self_maps_ = sys.openat(proc, "self/maps", O_RDONLY, 0);
+    if (NOINTR_SYS(sys.close(proc))) {
+      die("Failed to close file descriptor pointing to /proc");
+    }
+  }
 }
 
 void Sandbox::startSandbox() {
@@ -263,13 +268,6 @@ void Sandbox::startSandbox() {
   }
 
   SysCalls sys;
-  if (proc_ >= 0) {
-    proc_self_maps_ = sys.openat(proc_, "self/maps", O_RDONLY, 0);
-    if (NOINTR_SYS(sys.close(proc_))) {
-      die("Failed to close file descriptor pointing to /proc");
-    }
-    proc_ = -1;
-  }
   if (proc_self_maps_ < 0) {
     proc_self_maps_        = sys.open("/proc/self/maps", O_RDONLY, 0);
     if (proc_self_maps_ < 0) {

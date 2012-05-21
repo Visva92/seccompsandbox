@@ -79,11 +79,10 @@ class Sandbox {
 
   // The sandbox needs to be able to access "/proc/self/maps". If this file
   // is not accessible when "startSandbox()" gets called, the caller can
-  // provide an already opened file descriptor by calling "setProcSelf()".
+  // provide an already opened file descriptor by calling "setProcFd()".
   // The sandbox becomes the newer owner of this file descriptor and will
-  // eventually close it when "startSandbox()" executes. But if the caller
-  // never ends up calling startSandbox(), then the caller must close the
-  // file descriptor.
+  // eventually close it. After calling setProcFd(), the caller MUST eventually
+  // call startSandbox(), or resources could be leaked.
   static void setProcFd(int proc)        asm("SeccompSandboxSetProcFd");
 
   // This is the main public entry point. It finds all system calls that
