@@ -112,6 +112,13 @@ Maps::Iterator::Iterator(Maps* maps, bool at_beginning, bool at_end)
       at_end_(at_end) {
 }
 
+Maps::Iterator::Iterator(const Iterator& other)
+    : iter_(other.iter_),
+      maps_(other.maps_),
+      at_beginning_(other.at_beginning_),
+      at_end_(other.at_end_) {
+}
+
 Maps::LibraryMap::iterator& Maps::Iterator::getIterator() const {
   if (at_beginning_) {
     iter_ = maps_->libs_.begin();
