@@ -49,6 +49,7 @@ class Maps {
     Maps::LibraryMap::iterator& getIterator() const;
 
    public:
+    Iterator(const Iterator& other);
     Iterator begin();
     Iterator end();
     Iterator& operator++();
