@@ -29,7 +29,7 @@ class Maps {
   typedef std::basic_string<char, std::char_traits<char>,
                             SystemAllocator<char> > string;
 
-  Maps(int proc_self_maps);
+  explicit Maps(int proc_self_maps);
   ~Maps();
 
  protected:
